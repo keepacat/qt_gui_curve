@@ -1,5 +1,5 @@
 # qt_gui_curve
-***
+
 ## Shortcut
 
 R: reset view
