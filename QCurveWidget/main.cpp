@@ -1,10 +1,10 @@
-#include "widget.h"
+#include "qcurveeditwidget.h"
 #include <QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    QCurveWidget w;
+    QCurveEditWidget w;
     w.show();
 
     return a.exec();

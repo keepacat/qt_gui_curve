@@ -86,44 +86,50 @@ struct CurveLines
             {
                 return points[i].pos.y();
             }
-            if (i < points.size() - 1)
+            if (i > 0)
             {
-                if (points[i].pos.x() < x && points[i+1].pos.x() > x)
+                const CurvePoint& point = currentPoint(i);
+                const CurvePoint& pointd = evaluatePoint(i);
+                if (point.pos.x() < x && pointd.pos.x() > x)
                 {
-                    int ox = points[i + 1].pos.x() - points[i].pos.x();
-                    float t = (x - points[i].pos.x()) / ox;
+                    int ox = point.pos.x() - pointd.pos.x();
+                    float t = (x - pointd.pos.x()) / ox;
                     return evaluate(i, t).y();
                 }
-            }
-            else {
-                return evaluate(i, 0).y();
             }
         }
         return 0;
     }
 
+    CurvePoint& currentPoint(int i)
+    {
+        return points[i];
+    }
+
+    CurvePoint& evaluatePoint(int i)
+    {
+        return points[i - 1];
+    }
+
     QVector2D evaluate(int i, float t)
     {
-        if (points.size() == i - 1)
+        return evaluate(i, t, currentPoint(i), evaluatePoint(i));
+    }
+
+    QVector2D evaluate(int i, float t, const CurvePoint& point, const CurvePoint& pointd)
+    {
+        if (point.type == PointDefault)
         {
-            return QVector2D();
-        }
-        const CurvePoint& point = points.at(i);
-        if (point.type == 0)
-        {
-            const CurvePoint& pointd = points.at(++i);
             const QVector2D& A = point.pos;
             return QVector2D(pointd.pos.x(), A.y());
         }
-        else if (point.type == 1)
+        else if (point.type == PointLine)
         {
-            const CurvePoint& pointd = points.at(++i);
             const QVector2D& A = point.pos;
             const QVector2D& B = pointd.pos;
             return	(B - A) * t + A;
         }
-        else if (point.type == 2) {
-            const CurvePoint& pointd = points.at(++i);
+        else if (point.type == PointCurve) {
             const QVector2D& A = point.pos;
             const QVector2D& P1 = point.aid;
             const QVector2D& B = pointd.pos;
@@ -133,12 +139,8 @@ struct CurveLines
                 3.0f * t * (P1 - A) +
                 A;
         }
-        else {
-            const CurvePoint& pointd = points.at(++i);
-            const QVector2D& A = point.pos;
-            return QVector2D(pointd.pos.x(), A.y());
-        }
-        return QVector2D(0, 0);
+        const QVector2D& A = point.pos;
+        return QVector2D(pointd.pos.x(), A.y());
     }
 
     CurveLines& operator=(const CurveLines& p)
@@ -153,7 +155,7 @@ class QCurveWidget : public QWidget
 {
     Q_OBJECT
 public:
-    CurveLines m_curveData;
+    CurveLines m_curveLines;
 
 private:
     QTimer* m_timer;

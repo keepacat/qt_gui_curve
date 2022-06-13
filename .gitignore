@@ -1,6 +1,10 @@
 # Prerequisites
 *.d
 
+# Build
+QCurveWidget/build
+*.pro.user
+
 # Compiled Object files
 *.slo
 *.lo

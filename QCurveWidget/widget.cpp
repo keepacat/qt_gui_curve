@@ -39,6 +39,12 @@ QCurveWidget::QCurveWidget(QWidget* parent) : QWidget(parent)
     m_timer->start(1000 / RepaintFps);
     connect(m_timer, &QTimer::timeout, this, &QCurveWidget::onTimer);
     connect(this, &QWidget::customContextMenuRequested, this, &QCurveWidget::showContextMenu);
+
+    CurvePoint point;
+    point.type = PointFixed;
+    point.pos = toAnalyticCoordinates(QPoint(0, 0));
+    point.aid = toAnalyticCoordinates(QPoint(0, 0));
+    m_curveLines.insertPoint(point);
 }
 
 QCurveWidget::~QCurveWidget()
@@ -55,13 +61,13 @@ void QCurveWidget::onTimer()
     };
 
     bool isRepaint = false;
-    for (int i = 0; i < m_curveData.points.size(); i++)
+    for (int i = 0; i < m_curveLines.points.size(); i++)
     {
-        if (m_curveData.drags.indexOf(i) != -1)
+        if (m_curveLines.drags.indexOf(i) != -1)
         {
             continue;
         }
-        CurvePoint& point = m_curveData.points[i];
+        CurvePoint& point = m_curveLines.currentPoint(i);
         if (point.type == PointFixed)
         {
             continue;
@@ -74,9 +80,9 @@ void QCurveWidget::onTimer()
                 point.doa = doa;
                 isRepaint = true;
             }
-            if(i < m_curveData.points.size() - 1)
+            if(i > 0)
             {
-                CurvePoint& point2 = m_curveData.points[i+1];
+                CurvePoint& point2 = m_curveLines.evaluatePoint(i);
                 auto doa2 = check_dot_intersection(point2.aid);
                 if (doa2 != point2.doa)
                 {
@@ -168,14 +174,14 @@ void QCurveWidget::paintEvent(QPaintEvent* event)
 
     // Points
     painter.setRenderHint(QPainter::Antialiasing, true);
-    for (int i = 0; i < m_curveData.points.size() - 1; i++)
+    for (int i = 1; i < m_curveLines.points.size(); i++)
     {
-        CurvePoint& point = m_curveData.points[i];
+        const CurvePoint& point = m_curveLines.currentPoint(i);
         if (point.type == PointLine)
         {
             painter.setPen(QPen(QColor("#ED8A3F"), 2, Qt::SolidLine, Qt::FlatCap));
             QVector2D p0 = point.pos;
-            QVector2D p1 = m_curveData.evaluate(i, 1);
+            QVector2D p1 = m_curveLines.evaluate(i, 1);
             painter.drawLine(toCanvasCoordinates(p0), toCanvasCoordinates(p1));
         }
         else if (point.type == PointCurve)
@@ -185,25 +191,25 @@ void QCurveWidget::paintEvent(QPaintEvent* event)
             constexpr float step = 1.0f / steps;
             for (float t = step; t <= 1.0f; t += step)
             {
-                QVector2D p0 = m_curveData.evaluate(i, t - step);
-                QVector2D p1 = m_curveData.evaluate(i, t);
+                QVector2D p0 = m_curveLines.evaluate(i, t - step);
+                QVector2D p1 = m_curveLines.evaluate(i, t);
                 painter.drawLine(toCanvasCoordinates(p0), toCanvasCoordinates(p1));
             }
             {
-                QVector2D p0 = m_curveData.evaluate(i, 1.0f - step);
-                QVector2D p1 = m_curveData.evaluate(i, 1.0f);
+                QVector2D p0 = m_curveLines.evaluate(i, 1.0f - step);
+                QVector2D p1 = m_curveLines.evaluate(i, 1.0f);
                 painter.drawLine(toCanvasCoordinates(p0), toCanvasCoordinates(p1));
             }
             painter.setPen(QPen(Qt::green, 1, Qt::SolidLine, Qt::RoundCap));
             painter.drawLine(toCanvasCoordinates(point.pos), toCanvasCoordinates(point.aid));
-            CurvePoint& point2 = m_curveData.points[i + 1];
+            const CurvePoint& point2 = m_curveLines.evaluatePoint(i);
             painter.drawLine(toCanvasCoordinates(point2.pos), toCanvasCoordinates(point2.aid));
         }
         else {
-            CurvePoint& point2 = m_curveData.points[i + 1];
+            const CurvePoint& point2 = m_curveLines.evaluatePoint(i);
             painter.setPen(QPen(QColor("#fafbfd"), 2, Qt::SolidLine, Qt::FlatCap));
-            QVector2D p0(point.pos.x(), m_curveData.value);
-            QVector2D p1(point2.pos.x(), m_curveData.value);
+            QVector2D p0(point.pos.x(), m_curveLines.value);
+            QVector2D p1(point2.pos.x(), m_curveLines.value);
             painter.drawLine(toCanvasCoordinates(p0), toCanvasCoordinates(p1));
 
             painter.setPen(QPen(QColor("#fafbfd"), 2, Qt::DotLine, Qt::FlatCap));
@@ -218,9 +224,9 @@ void QCurveWidget::paintEvent(QPaintEvent* event)
     const int spacHeight = DotSize * 2;
     const int spec = spacWidth > m_scale ? (spacWidth*2 / m_scale) : 1;
     //qDebug() << spec << spacWidth << m_scale;
-    for (int i = 0; i < m_curveData.points.size(); i++)
+    for (int i = 0; i < m_curveLines.points.size(); i++)
     {
-        CurvePoint& point = m_curveData.points[i];
+        const CurvePoint& point = m_curveLines.currentPoint(i);
 
         QColor col = point.dot ? DotSelectionColor : DotColor;
         QColor colEdge = point.dot ? DotEdgeSelectionColor : DotEdgeColor;
@@ -256,9 +262,9 @@ void QCurveWidget::paintEvent(QPaintEvent* event)
             center = toCanvasCoordinates(point.aid);
             painter.drawRect(center.x() - DotSize, center.y() - DotSize, DotSize * 2, DotSize * 2);
 
-            if (m_curveData.points.size() > i + 1)
+            if (i > 0)
             {
-                CurvePoint& point2 = m_curveData.points[i + 1];
+                const CurvePoint& point2 = m_curveLines.evaluatePoint(i);
 
                 col = point2.doa ? DotSelectionColor : DotColor;
                 colEdge = point2.doa ? DotEdgeSelectionColor : DotEdgeColor;
@@ -282,14 +288,14 @@ void QCurveWidget::mousePressEvent(QMouseEvent* event)
     }
     else if (event->button() == Qt::MouseButton::LeftButton)
     {
-        for (int i = 0; i < m_curveData.points.size(); i++)
+        for (int i = 0; i < m_curveLines.points.size(); i++)
         {
-            CurvePoint& point = m_curveData.points[i];
+            CurvePoint& point = m_curveLines.points[i];
             if (point.dot || point.doa)
             {
-                if (m_curveData.drags.indexOf(i) == -1)
+                if (m_curveLines.drags.indexOf(i) == -1)
                 {
-                    m_curveData.drags.append(i);
+                    m_curveLines.drags.append(i);
                 }
                 return;
             }
@@ -315,20 +321,16 @@ void QCurveWidget::mouseMoveEvent(QMouseEvent* event)
         {
             auto newPos = toAnalyticCoordinates(m_position);
             auto offset = newPos - oldPos;
-            for (int i = 0; i < m_curveData.drags.size(); i++)
+            for (int i = 0; i < m_curveLines.drags.size(); i++)
             {
-                CurvePoint& point = m_curveData.points[m_curveData.drags[i]];
+                CurvePoint& point = m_curveLines.points[m_curveLines.drags[i]];
                 if (point.doa)
                 {
-                    point.aid += offset;
+                    point.aid.setY(point.aid.y() + offset.y());
                 }
                 else if (point.dot)
                 {
                     point.pos.setY(point.pos.y() + offset.y());
-                    if (point.type == PointCurve)
-                    {
-                        point.aid.setY(point.aid.y() + offset.y());
-                    }
                 }
             }
             repaint();
@@ -344,16 +346,29 @@ void QCurveWidget::mouseReleaseEvent(QMouseEvent* event)
 {
     if (m_select)
     {
-        for (int i = 0; i < m_curveData.points.size(); i++)
+        for (int i = 0; i < m_curveLines.points.size(); i++)
         {
-            CurvePoint& point = m_curveData.points[i];
+            CurvePoint& point = m_curveLines.points[i];
+            if(point.type == PointFixed)
+            {
+                continue;
+            }
             QPoint pos = toCanvasCoordinates(point.pos);
             if (m_selectGeometry.contains(pos, true))
             {
                 point.dot = true;
-                if (m_curveData.drags.indexOf(i) == -1)
+                if (m_curveLines.drags.indexOf(i) == -1)
                 {
-                    m_curveData.drags.append(i);
+                    m_curveLines.drags.append(i);
+                }
+            }
+            QPoint pos2 = toCanvasCoordinates(point.aid);
+            if (m_selectGeometry.contains(pos2, true))
+            {
+                point.doa = true;
+                if (m_curveLines.drags.indexOf(i) == -1)
+                {
+                    m_curveLines.drags.append(i);
                 }
             }
         }
@@ -365,7 +380,7 @@ void QCurveWidget::mouseReleaseEvent(QMouseEvent* event)
     else{
         if (event->button() == Qt::MouseButton::LeftButton)
         {
-            m_curveData.drags.clear();
+            m_curveLines.drags.clear();
         }
     }
 }
@@ -447,9 +462,9 @@ void QCurveWidget::keyReleaseEvent(QKeyEvent* event)
 
 void QCurveWidget::resetView()
 {
-    if (m_curveData.length)
+    if (m_curveLines.length)
     {
-        m_scale = this->width() / (m_curveData.length * 1.0f);
+        m_scale = this->width() / (m_curveLines.length * 1.0f);
         m_centerOffset.setX(50);
         m_centerOffset.setY(this->height() - 50);
     }
@@ -484,7 +499,7 @@ void QCurveWidget::focusView()
 
 void QCurveWidget::addPoint()
 {
-    m_curveData.drags.clear();
+    m_curveLines.drags.clear();
     QPoint pos = this->mapFromGlobal(QCursor().pos());
     CurvePoint point;
     point.type = PointLine;
@@ -492,7 +507,7 @@ void QCurveWidget::addPoint()
     point.aid = toAnalyticCoordinates(pos);
     if(modifyPoint(point))
     {
-        m_curveData.insertPoint(point);
+        m_curveLines.insertPoint(point);
     }
     repaint();
 }
@@ -500,27 +515,27 @@ void QCurveWidget::addPoint()
 void QCurveWidget::deletePoint()
 {
     QVector<CurvePoint> delPoint;
-    for (int i = 0; i < m_curveData.drags.size(); i++)
+    for (int i = 0; i < m_curveLines.drags.size(); i++)
     {
-        int index = m_curveData.drags[i];
-        delPoint.append(m_curveData.points[index]);
+        int index = m_curveLines.drags[i];
+        delPoint.append(m_curveLines.points[index]);
     }
     for (const CurvePoint& point : delPoint)
     {
-        m_curveData.deletePoint(point);
+        m_curveLines.deletePoint(point);
     }
-    m_curveData.drags.clear();
+    m_curveLines.drags.clear();
     repaint();
 }
 
 void QCurveWidget::changePoint()
 {
-    for (int i = 0; i < m_curveData.drags.size(); i++)
+    for (int i = 0; i < m_curveLines.drags.size(); i++)
     {
-        int index = m_curveData.drags[i];
-        modifyPoint(m_curveData.points[index]);
+        int index = m_curveLines.drags[i];
+        modifyPoint(m_curveLines.points[index]);
     }
-    m_curveData.drags.clear();
+    m_curveLines.drags.clear();
     repaint();
 }
 
