@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QWheelEvent>
 
+const int DotSize = 3;
 const int GridWidth = 1;
 const QColor DotColor(255, 255, 255);
 const QColor DotEdgeColor(0, 0, 0);
@@ -29,6 +30,167 @@ QCurveEditWidget::QCurveEditWidget(QWidget *parent) :
 QCurveEditWidget::~QCurveEditWidget()
 {
 
+}
+
+CurveLines *QCurveEditWidget::getCurveLines()
+{
+    return &m_curveLines;
+}
+
+void QCurveEditWidget::addCurveLine(const CurvePoint &point)
+{
+    m_curveLines.insertPoint(point);
+}
+
+void QCurveEditWidget::clearCurveLines()
+{
+    m_curveLines.selectPoints();
+    m_curveLines.deleteTouchPoint();
+}
+
+void QCurveEditWidget::resetView()
+{
+    m_centerOffset = QVector2D(size().width() / 2, size().height() / 2);
+    repaint();
+}
+
+void QCurveEditWidget::remoteView()
+{
+    repaint();
+}
+
+void QCurveEditWidget::hideTips()
+{
+    m_hide = !m_hide;
+    repaint();
+}
+
+void QCurveEditWidget::moveType()
+{
+    switch (m_curveMove) {
+    case CurveLines::X_Axis:
+        m_curveMove = CurveLines::Y_Axis;
+        break;
+    case CurveLines::Y_Axis:
+        m_curveMove = CurveLines::XY_Axis;
+        break;
+    case CurveLines::XY_Axis:
+        m_curveMove = CurveLines::X_Axis;
+        break;
+    }
+    repaint();
+}
+
+void QCurveEditWidget::findPoint()
+{
+    QPoint pos = this->mapFromGlobal(QCursor().pos());
+    m_curveLines.findTouchPoint(toAnalyticCoordinates(pos));
+    if(m_curveLines.pointsTouchSize())
+    {
+        setCursor(Qt::PointingHandCursor);
+        repaint();
+    }
+}
+
+void QCurveEditWidget::releasePoint()
+{
+    m_curveLines.releasePoints();
+    setCursor(Qt::ArrowCursor);
+    repaint();
+}
+
+void QCurveEditWidget::addPoint()
+{
+    QPoint pos = this->mapFromGlobal(QCursor().pos());
+    CurvePoint point(toAnalyticCoordinates(pos), CurvePoint::Line);
+    m_curveLines.insertPoint(point);
+    repaint();
+}
+
+void QCurveEditWidget::addPoint2()
+{
+    QPoint pos = this->mapFromGlobal(QCursor().pos());
+    CurvePoint point(toAnalyticCoordinates(pos), CurvePoint::Curve);
+    m_curveLines.insertPoint(point);
+    repaint();
+}
+
+void QCurveEditWidget::deletePoint()
+{
+    m_curveLines.deleteTouchPoint();
+    repaint();
+}
+
+void QCurveEditWidget::upPoint()
+{
+    QVector2D offset(0, 1);
+    m_curveLines.moveTouchPoint(offset, m_curveMove);
+    repaint();
+}
+
+void QCurveEditWidget::downPoint()
+{
+    QVector2D offset(0, -1);
+    m_curveLines.moveTouchPoint(offset, m_curveMove);
+    repaint();
+}
+
+void QCurveEditWidget::leftPoint()
+{
+    m_curveLines.leftTouchPoint(CurveLines::Touch_Move);
+    repaint();
+}
+
+void QCurveEditWidget::rightPoint()
+{
+    m_curveLines.rightTouchPoint(CurveLines::Touch_Move);
+    repaint();
+}
+
+void QCurveEditWidget::selectdTotalPoint()
+{
+    m_curveLines.selectPoints();
+    if(m_curveLines.pointsTouchSize())
+    {
+        setCursor(Qt::PointingHandCursor);
+        repaint();
+    }
+}
+
+void QCurveEditWidget::upContorlPoint()
+{
+    m_curveLines.ceilTouchPoint(m_curveMove);
+    repaint();
+}
+
+void QCurveEditWidget::downContorlPoint()
+{
+    m_curveLines.floorTouchPoint(m_curveMove);
+    repaint();
+}
+
+void QCurveEditWidget::leftContorlPoint()
+{
+    m_curveLines.leftTouchPoint(CurveLines::Touch_Add);
+    repaint();
+}
+
+void QCurveEditWidget::rightContorlPoint()
+{
+    m_curveLines.rightTouchPoint(CurveLines::Touch_Add);
+    repaint();
+}
+
+void QCurveEditWidget::leftShiftPoint()
+{
+    m_curveLines.leftTouchPoint(CurveLines::Touch_Take);
+    repaint();
+}
+
+void QCurveEditWidget::rightShiftPoint()
+{
+    m_curveLines.rightTouchPoint(CurveLines::Touch_Take);
+    repaint();
 }
 
 void QCurveEditWidget::onTimer()
@@ -103,7 +265,7 @@ void QCurveEditWidget::paintEvent(QPaintEvent *event)
     case CurveLines::Y_Axis:
         tips << tr("MoveType:Y_Axis");
         break;
-    case CurveLines::A_Axis:
+    case CurveLines::XY_Axis:
         tips << tr("MoveType:XY_Axis");
         break;
     }
@@ -225,12 +387,12 @@ void QCurveEditWidget::mousePressEvent(QMouseEvent *event)
     else if (event->button() == Qt::MouseButton::LeftButton)
     {
         const QVector2D &pos = toAnalyticCoordinates(event->pos());
-        if (m_curveLines.touchPoint(pos, m_scale))
+        if (m_curveLines.touchPoints(pos, m_scale))
         {
             setCursor(Qt::PointingHandCursor);
             repaint();
         }
-        if(m_curveLines.dragPoint() == 0)
+        if(m_curveLines.pointsDragSize() == 0)
         {
             m_select = true;
             m_selectGeometry.setTopLeft(event->pos());
@@ -245,12 +407,12 @@ void QCurveEditWidget::mouseMoveEvent(QMouseEvent *event)
     QVector2D oldPos = toAnalyticCoordinates(m_position);
     m_position = event->pos();
 
-    if (QApplication::mouseButtons() == Qt::MouseButton::MiddleButton)
+    if (event->buttons() == Qt::MouseButton::MiddleButton)
     {
         m_centerOffset = m_dragOffset + QVector2D(event->pos()) - QVector2D(m_dragPosition);
         repaint();
     }
-    else if (QApplication::mouseButtons() == Qt::MouseButton::LeftButton)
+    else if (event->buttons() == Qt::MouseButton::LeftButton)
     {
         if (m_select)
         {
@@ -278,7 +440,7 @@ void QCurveEditWidget::mouseReleaseEvent(QMouseEvent *event)
             auto topLeft = toAnalyticCoordinates(m_selectGeometry.topLeft());
             auto bottomRight = toAnalyticCoordinates(m_selectGeometry.bottomRight());
             QRectF rect(topLeft.toPointF(), bottomRight.toPointF());
-            m_curveLines.touchPoint(rect);
+            m_curveLines.touchPoints(rect);
 
             m_select = false;
             m_selectGeometry.setTopLeft(QPoint(0, 0));
@@ -292,7 +454,7 @@ void QCurveEditWidget::mouseReleaseEvent(QMouseEvent *event)
         }
         repaint();
     }
-    if(m_curveLines.touchPoint())
+    if(m_curveLines.pointsTouchSize())
     {
         setCursor(Qt::PointingHandCursor);
     }
@@ -353,6 +515,9 @@ void QCurveEditWidget::keyPressEvent(QKeyEvent *event)
         {
         case Qt::Key_R:
             resetView();
+            break;
+        case Qt::Key_O:
+            remoteView();
             break;
         case Qt::Key_H:
             hideTips();
@@ -435,146 +600,6 @@ void QCurveEditWidget::keyPressEvent(QKeyEvent *event)
 void QCurveEditWidget::keyReleaseEvent(QKeyEvent *event)
 {
     QWidget::keyReleaseEvent(event);
-}
-
-void QCurveEditWidget::resetView()
-{
-    m_centerOffset = QVector2D(size().width() / 2, size().height() / 2);
-    repaint();
-}
-
-void QCurveEditWidget::hideTips()
-{
-    m_hide = !m_hide;
-    repaint();
-}
-
-void QCurveEditWidget::moveType()
-{
-    switch (m_curveMove) {
-    case CurveLines::X_Axis:
-        m_curveMove = CurveLines::Y_Axis;
-        break;
-    case CurveLines::Y_Axis:
-        m_curveMove = CurveLines::A_Axis;
-        break;
-    case CurveLines::A_Axis:
-        m_curveMove = CurveLines::X_Axis;
-        break;
-    }
-    repaint();
-}
-
-void QCurveEditWidget::findPoint()
-{
-    QPoint pos = this->mapFromGlobal(QCursor().pos());
-    m_curveLines.findTouchPoint(toAnalyticCoordinates(pos));
-    if(m_curveLines.touchPoint())
-    {
-        setCursor(Qt::PointingHandCursor);
-        repaint();
-    }
-}
-
-void QCurveEditWidget::releasePoint()
-{
-    m_curveLines.releasePoints();
-    setCursor(Qt::ArrowCursor);
-    repaint();
-}
-
-void QCurveEditWidget::addPoint()
-{
-    QPoint pos = this->mapFromGlobal(QCursor().pos());
-    CurvePoint point(toAnalyticCoordinates(pos), CurvePoint::Line);
-    m_curveLines.insertPoint(point);
-    repaint();
-}
-
-void QCurveEditWidget::addPoint2()
-{
-    QPoint pos = this->mapFromGlobal(QCursor().pos());
-    CurvePoint point(toAnalyticCoordinates(pos), CurvePoint::Curve);
-    m_curveLines.insertPoint(point);
-    repaint();
-}
-
-void QCurveEditWidget::deletePoint()
-{
-    m_curveLines.deleteTouchPoint();
-    repaint();
-}
-
-void QCurveEditWidget::upPoint()
-{
-    QVector2D offset(0, 1);
-    m_curveLines.moveTouchPoint(offset, m_curveMove);
-    repaint();
-}
-
-void QCurveEditWidget::downPoint()
-{
-    QVector2D offset(0, -1);
-    m_curveLines.moveTouchPoint(offset, m_curveMove);
-    repaint();
-}
-
-void QCurveEditWidget::leftPoint()
-{
-    m_curveLines.leftTouchPoint(CurveLines::Touch_Move);
-    repaint();
-}
-
-void QCurveEditWidget::rightPoint()
-{
-    m_curveLines.rightTouchPoint(CurveLines::Touch_Move);
-    repaint();
-}
-
-void QCurveEditWidget::selectdTotalPoint()
-{
-    m_curveLines.selectPoints();
-    if(m_curveLines.touchPoint())
-    {
-        setCursor(Qt::PointingHandCursor);
-        repaint();
-    }
-}
-
-void QCurveEditWidget::upContorlPoint()
-{
-    m_curveLines.ceilTouchPoint(m_curveMove);
-    repaint();
-}
-
-void QCurveEditWidget::downContorlPoint()
-{
-    m_curveLines.floorTouchPoint(m_curveMove);
-    repaint();
-}
-
-void QCurveEditWidget::leftContorlPoint()
-{
-    m_curveLines.leftTouchPoint(CurveLines::Touch_Add);
-    repaint();
-}
-
-void QCurveEditWidget::rightContorlPoint()
-{
-    m_curveLines.rightTouchPoint(CurveLines::Touch_Add);
-    repaint();
-}
-
-void QCurveEditWidget::leftShiftPoint()
-{
-    m_curveLines.leftTouchPoint(CurveLines::Touch_Take);
-    repaint();
-}
-
-void QCurveEditWidget::rightShiftPoint()
-{
-    m_curveLines.rightTouchPoint(CurveLines::Touch_Take);
-    repaint();
 }
 
 QPoint QCurveEditWidget::toCanvasCoordinates(const QVector2D &analyticPos)
