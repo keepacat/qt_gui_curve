@@ -51,7 +51,7 @@ public:
 
     bool operator ==(const CurvePoint& p)
     {
-        return abs(pos.x() - p.pos.x()) <= MinimumFloatMistake;
+        return abs(pos.x() - p.pos.x()) <= 0.01f;
     }
 
 public:
@@ -62,7 +62,6 @@ public:
     bool drag2;
     bool touch2;
     QVector2D pos2;
-    const float MinimumFloatMistake = 0.01f;
 };
 
 class CurveLines : public QObject

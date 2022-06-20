@@ -19,6 +19,9 @@ public:
     void addCurveLine(const CurvePoint& point);
     void clearCurveLines();
 
+signals:
+    void closeWidget();
+
 public slots:
     void resetView();
     void remoteView();

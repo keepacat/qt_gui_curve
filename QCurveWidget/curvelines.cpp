@@ -80,7 +80,7 @@ void CurveLines::insertPoint(const CurvePoint &point)
         m_points.append(point);
     }
 
-    if(m_points.size() > 1 && index != 0)
+    if(m_points[index].pos == m_points[index].pos2 && index > 0)
     {
         QVector2D pos2 = (m_points[index].pos + m_points[index - 1].pos) / 2;
         m_points[index].pos2 = pos2;
@@ -134,7 +134,7 @@ float CurveLines::getValue(float x)
 {
     for (int i = 0; i < m_points.size(); i++)
     {
-        if ((m_points[i].pos.x() - x) <= m_points[i].MinimumFloatMistake)
+        if ((m_points[i].pos.x() - x) <= 0.01f)
         {
             return m_points[i].pos.y();
         }

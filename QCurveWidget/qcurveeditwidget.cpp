@@ -504,6 +504,7 @@ void QCurveEditWidget::showEvent(QShowEvent *event)
 
 void QCurveEditWidget::closeEvent(QCloseEvent *event)
 {
+    emit closeWidget();
     QWidget::closeEvent(event);
 }
 
