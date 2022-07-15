@@ -60,25 +60,25 @@ int CurveLines::pointsDragSize()
 void CurveLines::insertPoint(const CurvePoint &point)
 {
     int index = m_points.size();
-    for (int i = 0; i < m_points.size(); i++)
-    {
-        if(m_points[i] == point)
-        {
-            m_points[i] = point;
-            index = i;
-            break;
-        }
-        else if (m_points[i] > point)
-        {
-            m_points.insert(i, point);
-            index = i;
-            break;
-        }
-    }
-    if(index == m_points.size())
-    {
+//    for (int i = 0; i < m_points.size(); i++)
+//    {
+//        if(m_points[i] == point)
+//        {
+//            m_points[i] = point;
+//            index = i;
+//            break;
+//        }
+//        else if (m_points[i] > point)
+//        {
+//            m_points.insert(i, point);
+//            index = i;
+//            break;
+//        }
+//    }
+//    if(index == m_points.size())
+//    {
         m_points.append(point);
-    }
+//    }
 
     if(m_points[index].pos == m_points[index].pos2 && index > 0)
     {

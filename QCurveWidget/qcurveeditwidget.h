@@ -20,6 +20,7 @@ public:
     void clearCurveLines();
 
 signals:
+    void updateZoom(float, QPoint, QRect);
     void closeWidget();
 
 public slots:

@@ -26,17 +26,21 @@ signals:
     void updateCurve(const QVector<CurvePoint> &data);
 
 public slots:
+    void onZoom(float scale, QPoint offset, QRect rect);
     void onCurve(const QVector<CurvePoint>& points);
-    void onSocket(const QByteArray& data);
+    void onSocket(const QString& data);
 
 public:
     int remoteState();
     void remoteConnect();
     void remoteDisconnect();
+    void remoteSend();
 
 private:
     int m_remote;
-    QWebSocket *m_webSocket;
+    QJsonObject    m_msgZoom;
+    QJsonArray      m_msgPoints;
+    QWebSocket  *m_webSocket;
 };
 
 #endif // QCURVESOCKETWIDGET_H

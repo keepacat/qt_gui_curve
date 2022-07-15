@@ -15,7 +15,7 @@ const QColor LineColor(237,138,63);
 const QColor Line2Color(129,52,175);
 
 QCurveEditWidget::QCurveEditWidget(QWidget *parent) :
-    QWidget(parent), m_hide(false), m_select(false), m_scale(100.0f), m_curveMove(CurveLines::Y_Axis)
+    QWidget(parent), m_hide(false), m_select(false), m_scale(100.0f), m_curveMove(CurveLines::XY_Axis)
 {
     QPalette pal(palette());
     pal.setColor(QPalette::Background, QColor(38, 38, 38));
@@ -411,6 +411,7 @@ void QCurveEditWidget::mouseMoveEvent(QMouseEvent *event)
     {
         m_centerOffset = m_dragOffset + QVector2D(event->pos()) - QVector2D(m_dragPosition);
         repaint();
+        updateZoom(m_scale, m_centerOffset.toPoint(), this->rect());
     }
     else if (event->buttons() == Qt::MouseButton::LeftButton)
     {
@@ -478,6 +479,8 @@ void QCurveEditWidget::wheelEvent(QWheelEvent *event)
         float oy = (pos.y() * (scale - m_scale) + m_centerOffset.y() * m_scale) / scale;
         m_centerOffset.setX(ox);
         m_centerOffset.setY(oy);
+
+        updateZoom(m_scale, m_centerOffset.toPoint(), this->rect());
     }
     event->accept();
     repaint();
@@ -492,6 +495,7 @@ void QCurveEditWidget::resizeEvent(QResizeEvent *event)
     if (proportionX >= 0.0001f && proportionY >= 0.0001f)
     {
         m_centerOffset = QVector2D(m_centerOffset.x() * proportionX, m_centerOffset.y() * proportionY);
+        updateZoom(m_scale, m_centerOffset.toPoint(), this->rect());
     }
     QWidget::resizeEvent(event);
 }

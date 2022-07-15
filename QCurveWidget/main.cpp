@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
     CurveLines *line = w.getCurveLines();
     QObject::connect(socket, &QCurveCenterData::updateCurve, line, &CurveLines::onCurve);
     QObject::connect(line, &CurveLines::updateCurve, socket, &QCurveCenterData::onCurve);
+    QObject::connect(&w, &QCurveEditWidget::updateZoom, socket, &QCurveCenterData::onZoom);
 
     return a.exec();
 }
